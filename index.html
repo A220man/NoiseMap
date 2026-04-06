@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noisemap — Neighborhood Noise Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f4f0;
+    --color-background-tertiary: #eeede8;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #6b6a65;
+    --color-text-tertiary: #9e9d98;
+    --color-border-tertiary: rgba(0,0,0,0.10);
+    --color-border-secondary: rgba(0,0,0,0.18);
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "SF Mono", "Fira Code", monospace;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1c1c1a;
+      --color-background-secondary: #252523;
+      --color-background-tertiary: #2e2e2b;
+      --color-text-primary: #f0efe9;
+      --color-text-secondary: #9e9d98;
+      --color-text-tertiary: #6b6a65;
+      --color-border-tertiary: rgba(255,255,255,0.08);
+      --color-border-secondary: rgba(255,255,255,0.15);
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background-tertiary);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+
+  #app { max-width: 1100px; margin: 0 auto; }
+
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  #header h1 { font-size: 20px; font-weight: 500; }
+  #header span { font-size: 13px; color: var(--color-text-secondary); }
+
+  #layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 12px;
+    align-items: start;
+  }
+
+  @media (max-width: 700px) {
+    #layout { grid-template-columns: 1fr; }
+  }
+
+  #map-wrap {
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    background: var(--color-background-secondary);
+  }
+  #map-canvas { width: 100%; display: block; }
+
+  #sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem;
+  }
+
+  .card-label {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 10px;
+  }
+
+  #db-number { font-size: 36px; font-weight: 500; line-height: 1; transition: color .3s ease; }
+
+  #sparkline-wrap {
+    height: 40px;
+    margin: 10px 0 4px;
+    position: relative;
+  }
+  #sparkline { width: 100%; height: 100%; display: block; }
+  #db-bar-wrap {
+    height: 8px;
+    background: var(--color-background-secondary);
+    border-radius: 4px;
+    margin: 10px 0 6px;
+    overflow: hidden;
+  }
+  #db-bar { height: 100%; width: 0%; border-radius: 4px; transition: width .15s ease; }
+  #db-label { font-size: 12px; color: var(--color-text-secondary); }
+
+  button {
+    width: 100%;
+    padding: 8px 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    margin-top: 8px;
+    transition: background .15s;
+  }
+  button:hover { background: var(--color-background-secondary); }
+  button.active { border-color: #3B6D11; color: #3B6D11; }
+
+  select, textarea {
+    width: 100%;
+    padding: 7px 9px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    font-family: var(--font-sans);
+    margin-bottom: 8px;
+  }
+  textarea { resize: none; height: 60px; }
+
+  #stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 10px;
+  }
+  .stat-n { font-size: 20px; font-weight: 500; }
+  .stat-l { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+  #feed { max-height: 180px; overflow-y: auto; }
+  .feed-item {
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-item strong { color: var(--color-text-primary); font-weight: 500; }
+  .feed-time { float: right; font-size: 11px; }
+
+  #legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-secondary); }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  @keyframes pin-pulse {
+    0% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 0.2; transform: scale(2.2); }
+    100% { opacity: 0; transform: scale(2.8); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>Noisemap</h1>
+    <span id="loc-label">Huntington Beach, CA</span>
+  </div>
+  <div id="layout">
+    <div id="map-wrap">
+      <canvas id="map-canvas" height="420"></canvas>
+    </div>
+    <div id="sidebar">
+      <div class="card">
+        <div class="card-label">Decibel meter</div>
+        <div id="db-number">— dB</div>
+        <div id="db-bar-wrap"><div id="db-bar"></div></div>
+        <div id="sparkline-wrap"><canvas id="sparkline"></canvas></div>
+        <div id="db-label">Press measure to start</div>
+        <button id="measure-btn">Measure noise</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Report noise</div>
+        <select id="noise-type">
+          <option value="">Select type...</option>
+          <option>All noise</option>
+          <option>Construction</option>
+          <option>Traffic</option>
+          <option>Loud music</option>
+          <option>Barking dog</option>
+          <option>Aircraft</option>
+          <option>Other</option>
+        </select>
+        <textarea id="noise-note" placeholder="Optional note..."></textarea>
+        <button id="report-btn">Drop pin on map</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Neighborhood stats</div>
+        <div id="stats-grid">
+          <div class="stat"><div class="stat-n" id="s-avg">62 dB</div><div class="stat-l">Avg level</div></div>
+          <div class="stat"><div class="stat-n" id="s-reports">7</div><div class="stat-l">Reports today</div></div>
+          <div class="stat"><div class="stat-n" id="s-peak">91 dB</div><div class="stat-l">Peak today</div></div>
+          <div class="stat"><div class="stat-n" id="s-type">Traffic</div><div class="stat-l">Top source</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Recent reports</div>
+        <div id="feed"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Legend</div>
+        <div id="legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#639922"></div>Quiet &lt;50 dB</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#EF9F27"></div>Moderate 50–70</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#D85A30"></div>Loud 70–85</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#A32D2D"></div>Very loud &gt;85</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('map-canvas');
+const ctx = canvas.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+const COLS = 10, ROWS = 8;
+let W, H, cellW, cellH;
+let animFrame = null;
+const sparkHistory = [];
+const SPARK_MAX = 40;
+let placing = false;
+let placeData = null;
+let mouseX = -1, mouseY = -1;
+
+const streetNames = ['Main St','Ocean Ave','PCH','Magnolia','Goldenwest','Beach Blvd','Warner Ave','Adams Ave','Garfield Ave','Hamilton Ave'];
+const reports = [
+  {x:2,y:1,db:88,type:'Construction',time:'8:14am'},
+  {x:5,y:3,db:72,type:'Traffic',time:'9:02am'},
+  {x:7,y:5,db:65,type:'Loud music',time:'9:30am'},
+  {x:1,y:5,db:91,type:'Traffic',time:'10:05am'},
+  {x:4,y:6,db:55,type:'Barking dog',time:'10:22am'},
+  {x:8,y:2,db:78,type:'Aircraft',time:'10:41am'},
+  {x:3,y:4,db:60,type:'Traffic',time:'11:00am'},
+];
+
+function dbColor(db) {
+  if (db < 50) return '#639922';
+  if (db < 70) return '#EF9F27';
+  if (db < 85) return '#D85A30';
+  return '#A32D2D';
+}
+
+function resize() {
+  W = canvas.parentElement.clientWidth;
+  H = 420;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cellW = W / COLS;
+  cellH = H / ROWS;
+  draw();
+  drawSparkline();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const gridColor   = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+  const blockColor  = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
+  const streetColor = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
+  const textColor   = isDark ? 'rgba(255,255,255,0.3)'  : 'rgba(0,0,0,0.3)';
+
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      const isStreet = c % 3 === 0 || r % 2 === 0;
+      ctx.fillStyle = isStreet ? streetColor : blockColor;
+      ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+    }
+  }
+
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 0.5;
+  for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c*cellW,0); ctx.lineTo(c*cellW,H); ctx.stroke(); }
+  for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0,r*cellH); ctx.lineTo(W,r*cellH); ctx.stroke(); }
+
+  ctx.font = '10px var(--font-sans)';
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  for (let c = 0; c < COLS; c += 3) {
+    ctx.fillText(streetNames[(c/3) % streetNames.length], c*cellW + cellW/2, H - 6);
+  }
+
+  reports.forEach(r => drawPin(r, r._pulse || 0));
+
+  if (placing && mouseX >= 0 && mouseY >= 0) {
+    const col = dbColor(placeData.db);
+    const rad = pinRadius(placeData.db);
+
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, rad + 4, 0, Math.PI * 2);
+    ctx.fillStyle = col + '33';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, rad, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.font = `bold ${rad > 8 ? 10 : 8}px var(--font-sans)`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(placeData.db, mouseX, mouseY);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function animatePulse(report) {
+  report._pulse = 1;
+  const start = performance.now();
+  const duration = 800;
+  function tick(now) {
+    const elapsed = now - start;
+    report._pulse = Math.max(0, 1 - elapsed / duration);
+    draw();
+    if (report._pulse > 0) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function drawSparkline() {
+  const sc = document.getElementById('sparkline');
+  const sctx = sc.getContext('2d');
+  const sw = sc.parentElement.clientWidth;
+  const sh = 40;
+  sc.width = sw * dpr;
+  sc.height = sh * dpr;
+  sc.style.width = sw + 'px';
+  sc.style.height = sh + 'px';
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  if (sparkHistory.length < 2) return;
+
+  const min = 30, max = 110;
+  const step = sw / (SPARK_MAX - 1);
+
+  sctx.beginPath();
+  sparkHistory.forEach((db, i) => {
+    const x = i * step;
+    const y = sh - ((db - min) / (max - min)) * sh;
+    if (i === 0) sctx.moveTo(x, y);
+    else sctx.lineTo(x, y);
+  });
+
+  const lastDb = sparkHistory[sparkHistory.length - 1];
+  const grad = sctx.createLinearGradient(0, 0, 0, sh);
+  const col = dbColor(lastDb);
+  grad.addColorStop(0, col + '44');
+  grad.addColorStop(1, col + '00');
+
+  sctx.lineTo((sparkHistory.length - 1) * step, sh);
+  sctx.lineTo(0, sh);
+  sctx.closePath();
+  sctx.fillStyle = grad;
+  sctx.fill();
+
+  sctx.beginPath();
+  sparkHistory.forEach((db, i) => {
+    const x = i * step;
+    const y = sh - ((db - min) / (max - min)) * sh;
+    if (i === 0) sctx.moveTo(x, y);
+    else sctx.lineTo(x, y);
+  });
+  sctx.strokeStyle = col;
+  sctx.lineWidth = 1.5;
+  sctx.stroke();
+}
+
+function pinRadius(db) {
+  if (db < 50) return 6;
+  if (db < 70) return 8;
+  if (db < 85) return 10;
+  return 12;
+}
+
+function drawPin(r, pulse) {
+  const px = r.x * cellW + cellW / 2;
+  const py = r.y * cellH + cellH / 2;
+  const col = dbColor(r.db);
+  const rad = pinRadius(r.db);
+
+  if (pulse && pulse > 0) {
+    const p = 1 - pulse;
+    const pRad = rad + 14 * p;
+    ctx.beginPath();
+    ctx.arc(px, py, pRad, 0, Math.PI * 2);
+    ctx.fillStyle = col.slice(0,7) + Math.round(50 * pulse).toString(16).padStart(2,'0');
+    ctx.fill();
+  }
+
+  ctx.beginPath();
+  ctx.arc(px, py, rad + 4, 0, Math.PI * 2);
+  ctx.fillStyle = col + '33';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(px, py, rad, 0, Math.PI * 2);
+  ctx.fillStyle = col;
+  ctx.fill();
+
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(px, py, rad, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.font = `bold ${rad > 8 ? 10 : 8}px var(--font-sans)`;
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(r.db, px, py);
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (!placing) return;
+  const rect = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - rect.left) / rect.width * W;
+  mouseY = (e.clientY - rect.top) / rect.height * H;
+  draw();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (!placing) return;
+  mouseX = -1;
+  mouseY = -1;
+  draw();
+});
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const cx = Math.floor((mx / rect.width) * COLS);
+  const cy = Math.floor((my / rect.height) * ROWS);
+
+  if (placing) {
+    const now = new Date();
+    const timeStr = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+    const newReport = { x: cx, y: cy, db: placeData.db, type: placeData.type, time: timeStr, note: placeData.note };
+    reports.push(newReport);
+    placing = false;
+    placeData = null;
+    mouseX = -1;
+    mouseY = -1;
+    canvas.style.cursor = '';
+    const btn = document.getElementById('report-btn');
+    btn.textContent = 'Drop pin on map';
+    btn.classList.remove('active');
+    draw();
+    animatePulse(newReport);
+    addFeedItem(newReport);
+    updateStats();
+    document.getElementById('noise-note').value = '';
+    document.getElementById('noise-type').value = '';
+    return;
+  }
+
+  const hit = reports.find(r => r.x === cx && r.y === cy);
+  if (hit) {
+    document.getElementById('db-number').textContent = hit.db + ' dB';
+    setBar(hit.db);
+    document.getElementById('db-label').textContent = hit.type + ' · ' + hit.time;
+  }
+});
+
+function setBar(db) {
+  const pct = Math.min(100, ((db - 30) / 80) * 100);
+  const bar = document.getElementById('db-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = dbColor(db);
+}
+
+let measuring = false, measureInterval = null;
+document.getElementById('measure-btn').addEventListener('click', function () {
+  if (measuring) {
+    clearInterval(measureInterval);
+    measuring = false;
+    this.textContent = 'Measure noise';
+    this.classList.remove('active');
+    document.getElementById('db-number').style.color = '';
+    document.getElementById('db-label').textContent = 'Measurement stopped';
+    return;
+  }
+  measuring = true;
+  this.textContent = 'Stop measuring';
+  this.classList.add('active');
+  document.getElementById('db-label').textContent = 'Listening...';
+  measureInterval = setInterval(() => {
+    const db = Math.round(42 + Math.random() * 45 + Math.sin(Date.now() / 800) * 8);
+    const dbEl = document.getElementById('db-number');
+    dbEl.textContent = db + ' dB';
+    dbEl.style.color = dbColor(db);
+    setBar(db);
+    sparkHistory.push(db);
+    if (sparkHistory.length > SPARK_MAX) sparkHistory.shift();
+    drawSparkline();
+    const labels = ['Quiet', 'Moderate', 'Loud', 'Very loud'];
+    const li = db < 50 ? 0 : db < 70 ? 1 : db < 85 ? 2 : 3;
+    document.getElementById('db-label').textContent = labels[li] + ' environment detected';
+  }, 300);
+});
+
+document.getElementById('report-btn').addEventListener('click', function () {
+  if (placing) {
+    placing = false;
+    placeData = null;
+    mouseX = -1;
+    mouseY = -1;
+    canvas.style.cursor = '';
+    this.textContent = 'Drop pin on map';
+    this.classList.remove('active');
+    draw();
+    return;
+  }
+  const type = document.getElementById('noise-type').value || 'Unknown';
+  const note = document.getElementById('noise-note').value;
+  const dbText = document.getElementById('db-number').textContent;
+  const db = parseInt(dbText) || Math.round(55 + Math.random() * 30);
+  placing = true;
+  placeData = { type, note, db };
+  canvas.style.cursor = 'crosshair';
+  this.textContent = 'Cancel';
+  this.classList.add('active');
+});
+
+function addFeedItem(r) {
+  const feed = document.getElementById('feed');
+  const div = document.createElement('div');
+  div.className = 'feed-item';
+  div.innerHTML = `<strong>${r.type}</strong> · ${r.db} dB <span class="feed-time">${r.time}</span>${r.note ? '<br><span style="font-size:12px">' + r.note + '</span>' : ''}`;
+  feed.prepend(div);
+}
+
+function updateStats() {
+  const dbs = reports.map(r => r.db);
+  const avg = Math.round(dbs.reduce((a, b) => a + b, 0) / dbs.length);
+  const peak = Math.max(...dbs);
+  const types = {};
+  reports.forEach(r => types[r.type] = (types[r.type] || 0) + 1);
+  const top = Object.entries(types).sort((a, b) => b[1] - a[1])[0][0];
+  document.getElementById('s-avg').textContent = avg + ' dB';
+  document.getElementById('s-reports').textContent = reports.length;
+  document.getElementById('s-peak').textContent = peak + ' dB';
+  document.getElementById('s-type').textContent = top;
+}
+
+reports.forEach(r => addFeedItem(r));
+updateStats();
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
