@@ -16,6 +16,8 @@
     --color-text-tertiary: #9e9d98;
     --color-border-tertiary: rgba(0,0,0,0.10);
     --color-border-secondary: rgba(0,0,0,0.18);
+    --color-danger: #A32D2D;
+    --color-accent: #3B6D11;
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "SF Mono", "Fira Code", monospace;
     --border-radius-md: 8px;
@@ -32,6 +34,8 @@
       --color-text-tertiary: #6b6a65;
       --color-border-tertiary: rgba(255,255,255,0.08);
       --color-border-secondary: rgba(255,255,255,0.15);
+      --color-danger: #D85A30;
+      --color-accent: #88B355;
     }
   }
 
@@ -70,8 +74,64 @@
     border-radius: var(--border-radius-lg);
     overflow: hidden;
     background: var(--color-background-secondary);
+    position: relative;
   }
-  #map-canvas { width: 100%; display: block; }
+  #map { width: 100%; height: 600px; }
+
+  #search-wrap {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(380px, calc(100% - 24px));
+    z-index: 5;
+  }
+  gmp-place-autocomplete {
+    width: 100%;
+    border-radius: var(--border-radius-md);
+    background: rgba(255,255,255,0.96);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    backdrop-filter: blur(8px);
+    display: block;
+  }
+  @media (prefers-color-scheme: dark) {
+    gmp-place-autocomplete { background: rgba(28,28,26,0.96); }
+  }
+  .pac-container {
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    margin-top: 4px;
+    font-family: var(--font-sans);
+  }
+
+  #map-overlay {
+    position: absolute;
+    top: 64px;
+    left: 12px;
+    background: rgba(255,255,255,0.95);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+    min-width: 140px;
+    z-index: 4;
+  }
+  @media (prefers-color-scheme: dark) {
+    #map-overlay { background: rgba(28,28,26,0.95); }
+  }
+  #map-overlay strong { color: var(--color-text-primary); font-weight: 500; }
+  #map-overlay-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 4px;
+    color: var(--color-text-tertiary);
+  }
 
   #sidebar { display: flex; flex-direction: column; gap: 12px; }
 
@@ -123,7 +183,15 @@
     transition: background .15s;
   }
   button:hover { background: var(--color-background-secondary); }
-  button.active { border-color: #3B6D11; color: #3B6D11; }
+  button.active { border-color: var(--color-accent); color: var(--color-accent); }
+
+  .validation-msg {
+    font-size: 12px;
+    color: var(--color-danger);
+    margin-bottom: 6px;
+    display: none;
+  }
+  .validation-msg.show { display: block; }
 
   select, textarea {
     width: 100%;
@@ -136,6 +204,7 @@
     font-family: var(--font-sans);
     margin-bottom: 8px;
   }
+  select.invalid { border-color: var(--color-danger); }
   textarea { resize: none; height: 60px; }
 
   #stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -154,20 +223,130 @@
     font-size: 13px;
     color: var(--color-text-secondary);
     line-height: 1.5;
+    position: relative;
   }
   .feed-item:last-child { border-bottom: none; }
   .feed-item strong { color: var(--color-text-primary); font-weight: 500; }
   .feed-time { float: right; font-size: 11px; }
+  .feed-delete {
+    position: absolute;
+    right: 0;
+    top: 8px;
+    background: none;
+    border: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    font-size: 14px;
+    width: auto;
+    padding: 0 2px;
+    margin: 0;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .feed-item:hover .feed-delete { opacity: 1; }
+  .feed-delete:hover { color: var(--color-danger); background: none; }
 
   #legend { display: flex; gap: 10px; flex-wrap: wrap; }
   .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-secondary); }
   .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
-  @keyframes pin-pulse {
-    0% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 0.2; transform: scale(2.2); }
-    100% { opacity: 0; transform: scale(2.8); }
+  #mic-status {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
   }
+
+  #place-banner {
+    display: none;
+    background: var(--color-background-primary);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--color-accent);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  #place-banner.show { display: block; }
+
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    width: auto;
+    padding: 4px 10px;
+    margin: 0;
+    font-size: 12px;
+    border-radius: 999px;
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .chip:hover { background: var(--color-background-tertiary); }
+  .chip.active {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+  }
+
+  #time-slider-wrap { margin-top: 4px; }
+  #time-range-label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .slider-track {
+    position: relative;
+    height: 4px;
+    background: var(--color-background-secondary);
+    border-radius: 2px;
+    margin: 14px 8px 8px;
+  }
+  .slider-fill {
+    position: absolute;
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 2px;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    width: calc(100% + 16px);
+    height: 20px;
+    background: transparent;
+    pointer-events: none;
+    margin: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-background-primary);
+    border: 2px solid var(--color-accent);
+    cursor: grab;
+    pointer-events: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-background-primary);
+    border: 2px solid var(--color-accent);
+    cursor: grab;
+    pointer-events: auto;
+  }
+
+  .toggle-row { display: flex; gap: 6px; margin-top: 6px; }
+  .toggle-row button { margin-top: 0; flex: 1; font-size: 12px; padding: 6px 8px; }
 </style>
 </head>
 <body>
@@ -176,9 +355,17 @@
     <h1>Noisemap</h1>
     <span id="loc-label">Huntington Beach, CA</span>
   </div>
+  <div id="place-banner">Click anywhere on the map to drop your pin</div>
   <div id="layout">
     <div id="map-wrap">
-      <canvas id="map-canvas" height="420"></canvas>
+      <div id="map"></div>
+      <div id="search-wrap"></div>
+      <div id="map-overlay">
+        <div id="map-overlay-label">In view</div>
+        <div><strong id="ov-count">0</strong> reports</div>
+        <div>Avg <strong id="ov-avg">— dB</strong></div>
+        <div>Peak <strong id="ov-peak">— dB</strong></div>
+      </div>
     </div>
     <div id="sidebar">
       <div class="card">
@@ -187,13 +374,13 @@
         <div id="db-bar-wrap"><div id="db-bar"></div></div>
         <div id="sparkline-wrap"><canvas id="sparkline"></canvas></div>
         <div id="db-label">Press measure to start</div>
+        <div id="mic-status"></div>
         <button id="measure-btn">Measure noise</button>
       </div>
       <div class="card">
         <div class="card-label">Report noise</div>
         <select id="noise-type">
           <option value="">Select type...</option>
-          <option>All noise</option>
           <option>Construction</option>
           <option>Traffic</option>
           <option>Loud music</option>
@@ -201,16 +388,46 @@
           <option>Aircraft</option>
           <option>Other</option>
         </select>
+        <div class="validation-msg" id="type-validation">Please select a noise type</div>
         <textarea id="noise-note" placeholder="Optional note..."></textarea>
         <button id="report-btn">Drop pin on map</button>
       </div>
       <div class="card">
+        <div class="card-label">Filter by type</div>
+        <div id="chips"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Time of day</div>
+        <div id="time-slider-wrap">
+          <div id="time-range-label"><span id="t-min">12:00am</span><span id="t-max">11:59pm</span></div>
+          <div class="slider-track">
+            <div class="slider-fill" id="slider-fill"></div>
+            <input type="range" id="time-min" min="0" max="1439" value="0">
+            <input type="range" id="time-max" min="0" max="1439" value="1439">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Map view</div>
+        <div class="toggle-row">
+          <button id="heatmap-btn">Heatmap</button>
+          <button id="markers-btn" class="active">Pins</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-label">Neighborhood stats</div>
         <div id="stats-grid">
-          <div class="stat"><div class="stat-n" id="s-avg">62 dB</div><div class="stat-l">Avg level</div></div>
-          <div class="stat"><div class="stat-n" id="s-reports">7</div><div class="stat-l">Reports today</div></div>
-          <div class="stat"><div class="stat-n" id="s-peak">91 dB</div><div class="stat-l">Peak today</div></div>
-          <div class="stat"><div class="stat-n" id="s-type">Traffic</div><div class="stat-l">Top source</div></div>
+          <div class="stat"><div class="stat-n" id="s-avg">— dB</div><div class="stat-l">Avg level</div></div>
+          <div class="stat"><div class="stat-n" id="s-reports">0</div><div class="stat-l">Reports today</div></div>
+          <div class="stat"><div class="stat-n" id="s-peak">— dB</div><div class="stat-l">Peak today</div></div>
+          <div class="stat"><div class="stat-n" id="s-type">—</div><div class="stat-l">Top source</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Export</div>
+        <div class="toggle-row">
+          <button id="export-csv">CSV</button>
+          <button id="export-json">JSON</button>
         </div>
       </div>
       <div class="card">
@@ -231,28 +448,55 @@
 </div>
 
 <script>
-const canvas = document.getElementById('map-canvas');
-const ctx = canvas.getContext('2d');
+/* ── Globals ── */
 const dpr = window.devicePixelRatio || 1;
-const COLS = 10, ROWS = 8;
-let W, H, cellW, cellH;
-let animFrame = null;
 const sparkHistory = [];
 const SPARK_MAX = 40;
 let placing = false;
 let placeData = null;
-let mouseX = -1, mouseY = -1;
+let map, ghostMarker, heatmap;
+const markers = [];
+let showHeatmap = false;
+let showMarkers = true;
 
-const streetNames = ['Main St','Ocean Ave','PCH','Magnolia','Goldenwest','Beach Blvd','Warner Ave','Adams Ave','Garfield Ave','Hamilton Ave'];
-const reports = [
-  {x:2,y:1,db:88,type:'Construction',time:'8:14am'},
-  {x:5,y:3,db:72,type:'Traffic',time:'9:02am'},
-  {x:7,y:5,db:65,type:'Loud music',time:'9:30am'},
-  {x:1,y:5,db:91,type:'Traffic',time:'10:05am'},
-  {x:4,y:6,db:55,type:'Barking dog',time:'10:22am'},
-  {x:8,y:2,db:78,type:'Aircraft',time:'10:41am'},
-  {x:3,y:4,db:60,type:'Traffic',time:'11:00am'},
+const NOISE_TYPES = ['Construction','Traffic','Loud music','Barking dog','Aircraft','Other'];
+const activeTypes = new Set(NOISE_TYPES);
+let timeMin = 0, timeMax = 1439;
+
+const STORAGE_KEY = 'noisemap_reports';
+
+const defaultReports = [
+  { lat: 33.6603, lng: -117.9992, db: 88, type: 'Construction', time: '8:14am', id: 1 },
+  { lat: 33.6580, lng: -117.9950, db: 72, type: 'Traffic', time: '9:02am', id: 2 },
+  { lat: 33.6550, lng: -117.9910, db: 65, type: 'Loud music', time: '9:30am', id: 3 },
+  { lat: 33.6620, lng: -118.0010, db: 91, type: 'Traffic', time: '10:05am', id: 4 },
+  { lat: 33.6565, lng: -117.9970, db: 55, type: 'Barking dog', time: '10:22am', id: 5 },
+  { lat: 33.6610, lng: -117.9890, db: 78, type: 'Aircraft', time: '10:41am', id: 6 },
+  { lat: 33.6590, lng: -117.9960, db: 60, type: 'Traffic', time: '11:00am', id: 7 },
 ];
+
+let nextId = 100;
+const reports = loadReports();
+
+function loadReports() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        nextId = Math.max(...parsed.map(r => r.id || 0)) + 1;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return defaultReports.slice();
+}
+
+function saveReports() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  } catch (e) {}
+}
 
 function dbColor(db) {
   if (db < 50) return '#639922';
@@ -261,86 +505,498 @@ function dbColor(db) {
   return '#A32D2D';
 }
 
-function resize() {
-  W = canvas.parentElement.clientWidth;
-  H = 420;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  cellW = W / COLS;
-  cellH = H / ROWS;
-  draw();
-  drawSparkline();
+function pinScale(db) {
+  if (db < 50) return 6;
+  if (db < 70) return 8;
+  if (db < 85) return 10;
+  return 12;
 }
 
-function draw() {
-  ctx.clearRect(0, 0, W, H);
-  const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-  const gridColor   = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-  const blockColor  = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
-  const streetColor = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
-  const textColor   = isDark ? 'rgba(255,255,255,0.3)'  : 'rgba(0,0,0,0.3)';
+function timeToMinutes(t) {
+  if (!t) return 0;
+  const m = String(t).match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ampm = (m[3] || '').toLowerCase();
+  if (ampm === 'pm' && h !== 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  return h * 60 + min;
+}
 
-  for (let c = 0; c < COLS; c++) {
-    for (let r = 0; r < ROWS; r++) {
-      const isStreet = c % 3 === 0 || r % 2 === 0;
-      ctx.fillStyle = isStreet ? streetColor : blockColor;
-      ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+function minutesToTime(mins) {
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return h + ':' + (m < 10 ? '0' : '') + m + ampm;
+}
+
+function isReportVisible(r) {
+  if (!activeTypes.has(r.type)) return false;
+  const t = timeToMinutes(r.time);
+  if (t < timeMin || t > timeMax) return false;
+  return true;
+}
+
+/* ── Custom map style ── */
+const mapStyleLight = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f4f0' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f4f0' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#eeede8' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dad8d0' }] },
+  { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#cfdce0' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#7a8a8e' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#e8e6dc' }] },
+];
+
+const mapStyleDark = [
+  { elementType: 'geometry', stylers: [{ color: '#1c1c1a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1c1c1a' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e2b' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#353532' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3e3e3a' }] },
+  { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#1a2326' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5a6a6e' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#252523' }] },
+];
+
+function currentMapStyle() {
+  return window.matchMedia('(prefers-color-scheme:dark)').matches ? mapStyleDark : mapStyleLight;
+}
+
+/* ── Google Map ── */
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 33.6595, lng: -117.9960 },
+    zoom: 15,
+    disableDefaultUI: true,
+    zoomControl: true,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    clickableIcons: false,
+    styles: currentMapStyle(),
+  });
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', () => {
+      map.setOptions({ styles: currentMapStyle() });
+    });
+  }
+
+  reports.forEach(r => addMarker(r));
+
+  map.addListener('click', (e) => {
+    if (!placing) return;
+
+    const now = new Date();
+    const timeStr = formatTime(now);
+    const newReport = {
+      lat: e.latLng.lat(),
+      lng: e.latLng.lng(),
+      db: placeData.db,
+      type: placeData.type,
+      time: timeStr,
+      note: placeData.note,
+      id: nextId++,
+    };
+    reports.push(newReport);
+    saveReports();
+    addMarker(newReport);
+    rebuildHeatmap();
+    addFeedItem(newReport);
+    updateStats();
+    updateOverlay();
+    exitPlacing();
+    document.getElementById('noise-note').value = '';
+    document.getElementById('noise-type').value = '';
+  });
+
+  map.addListener('mousemove', (e) => {
+    if (!placing) return;
+    if (!ghostMarker) {
+      ghostMarker = new google.maps.Marker({
+        map: map,
+        opacity: 0.5,
+        clickable: false,
+      });
     }
-  }
-
-  ctx.strokeStyle = gridColor;
-  ctx.lineWidth = 0.5;
-  for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c*cellW,0); ctx.lineTo(c*cellW,H); ctx.stroke(); }
-  for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0,r*cellH); ctx.lineTo(W,r*cellH); ctx.stroke(); }
-
-  ctx.font = '10px var(--font-sans)';
-  ctx.fillStyle = textColor;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  for (let c = 0; c < COLS; c += 3) {
-    ctx.fillText(streetNames[(c/3) % streetNames.length], c*cellW + cellW/2, H - 6);
-  }
-
-  reports.forEach(r => drawPin(r, r._pulse || 0));
-
-  if (placing && mouseX >= 0 && mouseY >= 0) {
     const col = dbColor(placeData.db);
-    const rad = pinRadius(placeData.db);
+    const scale = pinScale(placeData.db);
+    ghostMarker.setPosition(e.latLng);
+    ghostMarker.setIcon({
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: scale,
+      fillColor: col,
+      fillOpacity: 0.5,
+      strokeWeight: 0,
+    });
+    ghostMarker.setLabel({
+      text: String(placeData.db),
+      fontSize: scale > 8 ? '10px' : '8px',
+      color: '#fff',
+      fontWeight: 'bold',
+    });
+  });
 
-    ctx.globalAlpha = 0.45;
-    ctx.beginPath();
-    ctx.arc(mouseX, mouseY, rad + 4, 0, Math.PI * 2);
-    ctx.fillStyle = col + '33';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(mouseX, mouseY, rad, 0, Math.PI * 2);
-    ctx.fillStyle = col;
-    ctx.fill();
-    ctx.font = `bold ${rad > 8 ? 10 : 8}px var(--font-sans)`;
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(placeData.db, mouseX, mouseY);
-    ctx.globalAlpha = 1;
+  map.addListener('mouseout', () => {
+    if (ghostMarker) ghostMarker.setMap(null);
+    if (placing) ghostMarker = null;
+  });
+
+  map.addListener('mouseover', () => {
+    if (placing && ghostMarker) ghostMarker.setMap(map);
+  });
+
+  map.addListener('idle', updateOverlay);
+  google.maps.event.addListenerOnce(map, 'tilesloaded', updateOverlay);
+
+  setupSearch();
+}
+
+async function setupSearch() {
+  const wrap = document.getElementById('search-wrap');
+  if (!wrap || !google.maps.places) return;
+
+  if (google.maps.places.PlaceAutocompleteElement) {
+    const pac = new google.maps.places.PlaceAutocompleteElement();
+    pac.style.width = '100%';
+    wrap.appendChild(pac);
+
+    pac.addEventListener('gmp-select', async (e) => {
+      try {
+        const place = e.placePrediction.toPlace();
+        await place.fetchFields({
+          fields: ['displayName', 'formattedAddress', 'location', 'viewport'],
+        });
+        if (place.viewport) {
+          map.fitBounds(place.viewport);
+        } else if (place.location) {
+          map.setCenter(place.location);
+          map.setZoom(16);
+        }
+        document.getElementById('loc-label').textContent =
+          place.displayName || place.formattedAddress || 'Custom location';
+      } catch (err) {
+        console.warn('Place fetch failed:', err);
+      }
+    });
+  } else if (google.maps.places.Autocomplete) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search address or place...';
+    input.autocomplete = 'off';
+    input.style.cssText =
+      'width:100%;padding:9px 12px;border:0.5px solid var(--color-border-secondary);' +
+      'border-radius:var(--border-radius-md);background:rgba(255,255,255,0.96);' +
+      'color:var(--color-text-primary);font-size:13px;font-family:var(--font-sans);' +
+      'box-shadow:0 2px 8px rgba(0,0,0,0.12);';
+    wrap.appendChild(input);
+
+    const ac = new google.maps.places.Autocomplete(input, {
+      fields: ['geometry', 'name', 'formatted_address'],
+    });
+    ac.bindTo('bounds', map);
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place || !place.geometry) return;
+      if (place.geometry.viewport) {
+        map.fitBounds(place.geometry.viewport);
+      } else {
+        map.setCenter(place.geometry.location);
+        map.setZoom(16);
+      }
+      document.getElementById('loc-label').textContent =
+        place.name || place.formatted_address || 'Custom location';
+    });
   }
 }
 
-function animatePulse(report) {
-  report._pulse = 1;
-  const start = performance.now();
-  const duration = 800;
-  function tick(now) {
-    const elapsed = now - start;
-    report._pulse = Math.max(0, 1 - elapsed / duration);
-    draw();
-    if (report._pulse > 0) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+function formatTime(d) {
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return h + ':' + (m < 10 ? '0' : '') + m + ampm;
 }
 
+function addMarker(report) {
+  const col = dbColor(report.db);
+  const scale = pinScale(report.db);
+
+  const marker = new google.maps.Marker({
+    position: { lat: report.lat, lng: report.lng },
+    map: showMarkers && isReportVisible(report) ? map : null,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: scale,
+      fillColor: col,
+      fillOpacity: 0.85,
+      strokeColor: col,
+      strokeWeight: 2,
+      strokeOpacity: 0.3,
+    },
+    label: {
+      text: String(report.db),
+      fontSize: scale > 8 ? '10px' : '8px',
+      color: '#fff',
+      fontWeight: 'bold',
+    },
+  });
+
+  const infoContent = `<div style="font-family:-apple-system,sans-serif;font-size:13px;">
+    <strong>${escapeHtml(report.type)}</strong> &middot; ${report.db} dB<br>
+    <span style="color:#888;">${escapeHtml(report.time)}</span>
+    ${report.note ? '<br><span style="font-size:12px;">' + escapeHtml(report.note) + '</span>' : ''}
+  </div>`;
+
+  const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+  marker.addListener('click', () => {
+    infoWindow.open(map, marker);
+    document.getElementById('db-number').textContent = report.db + ' dB';
+    setBar(report.db);
+    document.getElementById('db-label').textContent = report.type + ' · ' + report.time;
+  });
+
+  marker._reportId = report.id;
+  markers.push(marker);
+  return marker;
+}
+
+function removeMarker(id) {
+  const idx = markers.findIndex(m => m._reportId === id);
+  if (idx !== -1) {
+    markers[idx].setMap(null);
+    markers.splice(idx, 1);
+  }
+}
+
+function refreshMarkerVisibility() {
+  markers.forEach(m => {
+    const r = reports.find(x => x.id === m._reportId);
+    if (!r) return;
+    m.setMap(showMarkers && isReportVisible(r) ? map : null);
+  });
+}
+
+function rebuildHeatmap() {
+  if (!window.google || !google.maps.visualization || !map) return;
+  if (heatmap) {
+    heatmap.setMap(null);
+    heatmap = null;
+  }
+  if (!showHeatmap) return;
+
+  const data = reports
+    .filter(isReportVisible)
+    .map(r => ({
+      location: new google.maps.LatLng(r.lat, r.lng),
+      weight: Math.max(1, (r.db - 30) / 10),
+    }));
+
+  heatmap = new google.maps.visualization.HeatmapLayer({
+    data: data,
+    map: map,
+    radius: 40,
+    opacity: 0.7,
+    gradient: [
+      'rgba(99,153,34,0)',
+      'rgba(99,153,34,1)',
+      'rgba(239,159,39,1)',
+      'rgba(216,90,48,1)',
+      'rgba(163,45,45,1)',
+    ],
+  });
+}
+
+function updateOverlay() {
+  if (!map) return;
+  const bounds = map.getBounds();
+  if (!bounds) return;
+  const visible = reports.filter(r =>
+    isReportVisible(r) && bounds.contains({ lat: r.lat, lng: r.lng })
+  );
+  document.getElementById('ov-count').textContent = visible.length;
+  if (visible.length === 0) {
+    document.getElementById('ov-avg').textContent = '— dB';
+    document.getElementById('ov-peak').textContent = '— dB';
+    return;
+  }
+  const dbs = visible.map(r => r.db);
+  const avg = Math.round(dbs.reduce((a, b) => a + b, 0) / dbs.length);
+  const peak = Math.max(...dbs);
+  document.getElementById('ov-avg').textContent = avg + ' dB';
+  document.getElementById('ov-peak').textContent = peak + ' dB';
+}
+
+function exitPlacing() {
+  placing = false;
+  placeData = null;
+  if (ghostMarker) {
+    ghostMarker.setMap(null);
+    ghostMarker = null;
+  }
+  if (map) map.setOptions({ draggableCursor: null });
+  const btn = document.getElementById('report-btn');
+  btn.textContent = 'Drop pin on map';
+  btn.classList.remove('active');
+  document.getElementById('place-banner').classList.remove('show');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ── Filter chips ── */
+function renderChips() {
+  const wrap = document.getElementById('chips');
+  wrap.innerHTML = '';
+  const allActive = NOISE_TYPES.every(t => activeTypes.has(t));
+  const allBtn = document.createElement('button');
+  allBtn.className = 'chip' + (allActive ? ' active' : '');
+  allBtn.textContent = 'All';
+  allBtn.addEventListener('click', () => {
+    if (allActive) {
+      activeTypes.clear();
+    } else {
+      NOISE_TYPES.forEach(t => activeTypes.add(t));
+    }
+    onFiltersChanged();
+  });
+  wrap.appendChild(allBtn);
+
+  NOISE_TYPES.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (activeTypes.has(t) ? ' active' : '');
+    btn.textContent = t;
+    btn.addEventListener('click', () => {
+      if (activeTypes.has(t)) activeTypes.delete(t);
+      else activeTypes.add(t);
+      onFiltersChanged();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function onFiltersChanged() {
+  renderChips();
+  refreshMarkerVisibility();
+  rebuildHeatmap();
+  updateOverlay();
+}
+
+/* ── Time slider with z-index swap ── */
+function setupSlider() {
+  const minEl = document.getElementById('time-min');
+  const maxEl = document.getElementById('time-max');
+  const fill = document.getElementById('slider-fill');
+  const tMin = document.getElementById('t-min');
+  const tMax = document.getElementById('t-max');
+  const MAX = 1439;
+  const GAP = 5;
+
+  function update(source) {
+    let lo = parseInt(minEl.value, 10);
+    let hi = parseInt(maxEl.value, 10);
+    if (lo > hi - GAP) {
+      if (source === 'min') {
+        lo = Math.max(0, hi - GAP);
+        minEl.value = lo;
+      } else {
+        hi = Math.min(MAX, lo + GAP);
+        maxEl.value = hi;
+      }
+    }
+    timeMin = lo;
+    timeMax = hi;
+    const loPct = (lo / MAX) * 100;
+    const hiPct = (hi / MAX) * 100;
+    fill.style.left = loPct + '%';
+    fill.style.right = (100 - hiPct) + '%';
+    tMin.textContent = minutesToTime(lo);
+    tMax.textContent = minutesToTime(hi);
+
+    if (lo > MAX - hi) {
+      minEl.style.zIndex = 3;
+      maxEl.style.zIndex = 2;
+    } else {
+      minEl.style.zIndex = 2;
+      maxEl.style.zIndex = 3;
+    }
+
+    refreshMarkerVisibility();
+    rebuildHeatmap();
+    updateOverlay();
+  }
+  minEl.addEventListener('input', () => update('min'));
+  maxEl.addEventListener('input', () => update('max'));
+  update('init');
+}
+
+document.getElementById('heatmap-btn').addEventListener('click', function () {
+  showHeatmap = !showHeatmap;
+  this.classList.toggle('active', showHeatmap);
+  rebuildHeatmap();
+});
+document.getElementById('markers-btn').addEventListener('click', function () {
+  showMarkers = !showMarkers;
+  this.classList.toggle('active', showMarkers);
+  refreshMarkerVisibility();
+});
+
+/* ── Export ── */
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportCsv() {
+  const headers = ['id','type','db','time','lat','lng','note'];
+  const escape = v => {
+    const s = String(v == null ? '' : v);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const rows = [headers.join(',')];
+  reports.forEach(r => {
+    rows.push(headers.map(h => escape(r[h])).join(','));
+  });
+  downloadFile('noisemap-reports.csv', rows.join('\n'), 'text/csv');
+}
+
+function exportJson() {
+  downloadFile('noisemap-reports.json', JSON.stringify(reports, null, 2), 'application/json');
+}
+
+document.getElementById('export-csv').addEventListener('click', exportCsv);
+document.getElementById('export-json').addEventListener('click', exportJson);
+
+/* ── Sparkline ── */
 function drawSparkline() {
   const sc = document.getElementById('sparkline');
   const sctx = sc.getContext('2d');
@@ -389,104 +1045,6 @@ function drawSparkline() {
   sctx.stroke();
 }
 
-function pinRadius(db) {
-  if (db < 50) return 6;
-  if (db < 70) return 8;
-  if (db < 85) return 10;
-  return 12;
-}
-
-function drawPin(r, pulse) {
-  const px = r.x * cellW + cellW / 2;
-  const py = r.y * cellH + cellH / 2;
-  const col = dbColor(r.db);
-  const rad = pinRadius(r.db);
-
-  if (pulse && pulse > 0) {
-    const p = 1 - pulse;
-    const pRad = rad + 14 * p;
-    ctx.beginPath();
-    ctx.arc(px, py, pRad, 0, Math.PI * 2);
-    ctx.fillStyle = col.slice(0,7) + Math.round(50 * pulse).toString(16).padStart(2,'0');
-    ctx.fill();
-  }
-
-  ctx.beginPath();
-  ctx.arc(px, py, rad + 4, 0, Math.PI * 2);
-  ctx.fillStyle = col + '33';
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(px, py, rad, 0, Math.PI * 2);
-  ctx.fillStyle = col;
-  ctx.fill();
-
-  ctx.shadowColor = col;
-  ctx.shadowBlur = 8;
-  ctx.beginPath();
-  ctx.arc(px, py, rad, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  ctx.font = `bold ${rad > 8 ? 10 : 8}px var(--font-sans)`;
-  ctx.fillStyle = '#fff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(r.db, px, py);
-}
-
-canvas.addEventListener('mousemove', e => {
-  if (!placing) return;
-  const rect = canvas.getBoundingClientRect();
-  mouseX = (e.clientX - rect.left) / rect.width * W;
-  mouseY = (e.clientY - rect.top) / rect.height * H;
-  draw();
-});
-
-canvas.addEventListener('mouseleave', () => {
-  if (!placing) return;
-  mouseX = -1;
-  mouseY = -1;
-  draw();
-});
-
-canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const cx = Math.floor((mx / rect.width) * COLS);
-  const cy = Math.floor((my / rect.height) * ROWS);
-
-  if (placing) {
-    const now = new Date();
-    const timeStr = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
-    const newReport = { x: cx, y: cy, db: placeData.db, type: placeData.type, time: timeStr, note: placeData.note };
-    reports.push(newReport);
-    placing = false;
-    placeData = null;
-    mouseX = -1;
-    mouseY = -1;
-    canvas.style.cursor = '';
-    const btn = document.getElementById('report-btn');
-    btn.textContent = 'Drop pin on map';
-    btn.classList.remove('active');
-    draw();
-    animatePulse(newReport);
-    addFeedItem(newReport);
-    updateStats();
-    document.getElementById('noise-note').value = '';
-    document.getElementById('noise-type').value = '';
-    return;
-  }
-
-  const hit = reports.find(r => r.x === cx && r.y === cy);
-  if (hit) {
-    document.getElementById('db-number').textContent = hit.db + ' dB';
-    setBar(hit.db);
-    document.getElementById('db-label').textContent = hit.type + ' · ' + hit.time;
-  }
-});
-
 function setBar(db) {
   const pct = Math.min(100, ((db - 30) / 80) * 100);
   const bar = document.getElementById('db-bar');
@@ -494,10 +1052,55 @@ function setBar(db) {
   bar.style.background = dbColor(db);
 }
 
+/* ── Real microphone input ── */
+let audioCtx, analyser, micStream, micSource;
+
+async function startMic() {
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micSource = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    micSource.connect(analyser);
+    document.getElementById('mic-status').textContent = 'Using microphone';
+    return true;
+  } catch (e) {
+    document.getElementById('mic-status').textContent = 'Mic unavailable — using simulated data';
+    return false;
+  }
+}
+
+function stopMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (audioCtx) {
+    audioCtx.close();
+    audioCtx = null;
+  }
+  analyser = null;
+  micSource = null;
+  document.getElementById('mic-status').textContent = '';
+}
+
+function getMicDb() {
+  if (!analyser) return null;
+  const data = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(data);
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+  const rms = Math.sqrt(sum / data.length);
+  const db = 20 * Math.log10(rms + 1e-10);
+  return Math.round(Math.max(30, Math.min(100, db + 95)));
+}
+
 let measuring = false, measureInterval = null;
-document.getElementById('measure-btn').addEventListener('click', function () {
+document.getElementById('measure-btn').addEventListener('click', async function () {
   if (measuring) {
     clearInterval(measureInterval);
+    stopMic();
     measuring = false;
     this.textContent = 'Measure noise';
     this.classList.remove('active');
@@ -509,8 +1112,13 @@ document.getElementById('measure-btn').addEventListener('click', function () {
   this.textContent = 'Stop measuring';
   this.classList.add('active');
   document.getElementById('db-label').textContent = 'Listening...';
+
+  const hasMic = await startMic();
+
   measureInterval = setInterval(() => {
-    const db = Math.round(42 + Math.random() * 45 + Math.sin(Date.now() / 800) * 8);
+    const db = hasMic && analyser
+      ? getMicDb()
+      : Math.round(42 + Math.random() * 45 + Math.sin(Date.now() / 800) * 8);
     const dbEl = document.getElementById('db-number');
     dbEl.textContent = db + ' dB';
     dbEl.style.color = dbColor(db);
@@ -524,38 +1132,98 @@ document.getElementById('measure-btn').addEventListener('click', function () {
   }, 300);
 });
 
+/* ── Form validation ── */
+document.getElementById('noise-type').addEventListener('change', function () {
+  this.classList.remove('invalid');
+  document.getElementById('type-validation').classList.remove('show');
+});
+
 document.getElementById('report-btn').addEventListener('click', function () {
   if (placing) {
-    placing = false;
-    placeData = null;
-    mouseX = -1;
-    mouseY = -1;
-    canvas.style.cursor = '';
-    this.textContent = 'Drop pin on map';
-    this.classList.remove('active');
-    draw();
+    exitPlacing();
     return;
   }
-  const type = document.getElementById('noise-type').value || 'Unknown';
+
+  const typeEl = document.getElementById('noise-type');
+  const type = typeEl.value;
+  if (!type) {
+    typeEl.classList.add('invalid');
+    document.getElementById('type-validation').classList.add('show');
+    return;
+  }
+
   const note = document.getElementById('noise-note').value;
   const dbText = document.getElementById('db-number').textContent;
   const db = parseInt(dbText) || Math.round(55 + Math.random() * 30);
   placing = true;
   placeData = { type, note, db };
-  canvas.style.cursor = 'crosshair';
+  if (map) map.setOptions({ draggableCursor: 'crosshair' });
   this.textContent = 'Cancel';
   this.classList.add('active');
+  document.getElementById('place-banner').classList.add('show');
 });
 
+/* ── Feed with delete ── */
 function addFeedItem(r) {
   const feed = document.getElementById('feed');
   const div = document.createElement('div');
   div.className = 'feed-item';
-  div.innerHTML = `<strong>${r.type}</strong> · ${r.db} dB <span class="feed-time">${r.time}</span>${r.note ? '<br><span style="font-size:12px">' + r.note + '</span>' : ''}`;
+  div.dataset.id = r.id;
+
+  const content = document.createElement('span');
+  const strong = document.createElement('strong');
+  strong.textContent = r.type;
+  content.appendChild(strong);
+  content.appendChild(document.createTextNode(' · ' + r.db + ' dB '));
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'feed-time';
+  timeSpan.textContent = r.time;
+  content.appendChild(timeSpan);
+  if (r.note) {
+    content.appendChild(document.createElement('br'));
+    const noteSpan = document.createElement('span');
+    noteSpan.style.fontSize = '12px';
+    noteSpan.textContent = r.note;
+    content.appendChild(noteSpan);
+  }
+  div.appendChild(content);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'feed-delete';
+  delBtn.textContent = '×';
+  delBtn.title = 'Delete report';
+  delBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    deleteReport(r.id);
+  });
+  div.appendChild(delBtn);
+
   feed.prepend(div);
 }
 
+function deleteReport(id) {
+  const idx = reports.findIndex(r => r.id === id);
+  if (idx === -1) return;
+  reports.splice(idx, 1);
+  saveReports();
+  removeMarker(id);
+  rebuildHeatmap();
+
+  const feedItem = document.querySelector(`.feed-item[data-id="${id}"]`);
+  if (feedItem) feedItem.remove();
+
+  updateStats();
+  updateOverlay();
+}
+
 function updateStats() {
+  if (reports.length === 0) {
+    document.getElementById('s-avg').textContent = '— dB';
+    document.getElementById('s-reports').textContent = '0';
+    document.getElementById('s-peak').textContent = '— dB';
+    document.getElementById('s-type').textContent = '—';
+    return;
+  }
   const dbs = reports.map(r => r.db);
   const avg = Math.round(dbs.reduce((a, b) => a + b, 0) / dbs.length);
   const peak = Math.max(...dbs);
@@ -568,10 +1236,12 @@ function updateStats() {
   document.getElementById('s-type').textContent = top;
 }
 
+/* ── Init ── */
 reports.forEach(r => addFeedItem(r));
 updateStats();
-window.addEventListener('resize', resize);
-resize();
+renderChips();
+setupSlider();
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH-49uln5lL6SXnq__0iQdk2NykKpopbc&libraries=visualization,places&loading=async&callback=initMap" async defer></script>
 </body>
 </html>
