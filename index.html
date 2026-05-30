@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Noisemap — Neighborhood Noise Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -84,26 +86,8 @@
     left: 50%;
     transform: translateX(-50%);
     width: min(380px, calc(100% - 24px));
-    z-index: 5;
+    z-index: 1001;
   }
-  gmp-place-autocomplete {
-    width: 100%;
-    border-radius: var(--border-radius-md);
-    background: rgba(255,255,255,0.96);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    backdrop-filter: blur(8px);
-    display: block;
-  }
-  @media (prefers-color-scheme: dark) {
-    gmp-place-autocomplete { background: rgba(28,28,26,0.96); }
-  }
-  .pac-container {
-    border-radius: var(--border-radius-md);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    margin-top: 4px;
-    font-family: var(--font-sans);
-  }
-
   #map-overlay {
     position: absolute;
     top: 64px;
@@ -119,7 +103,7 @@
     backdrop-filter: blur(8px);
     pointer-events: none;
     min-width: 140px;
-    z-index: 4;
+    z-index: 1001;
   }
   @media (prefers-color-scheme: dark) {
     #map-overlay { background: rgba(28,28,26,0.95); }
@@ -347,7 +331,110 @@
 
   .toggle-row { display: flex; gap: 6px; margin-top: 6px; }
   .toggle-row button { margin-top: 0; flex: 1; font-size: 12px; padding: 6px 8px; }
+
+  /* Leaflet pin markers (custom divIcon) */
+  .noise-pin { background: transparent; border: none; }
+  .noise-pin-inner {
+    border-radius: 50%;
+    color: #fff;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.55);
+    font-family: var(--font-sans);
+    line-height: 1;
+  }
+  .noise-pin.ghost .noise-pin-inner { opacity: 0.55; box-shadow: none; }
+  .placing-cursor { cursor: crosshair !important; }
+  .leaflet-popup-content { font-family: var(--font-sans); }
+
+  /* Search box + Nominatim results dropdown */
+  #search-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    background: rgba(255,255,255,0.96);
+    color: var(--color-text-primary);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    backdrop-filter: blur(8px);
+  }
+  #search-input:focus { outline: none; border-color: var(--color-accent); }
+  @media (prefers-color-scheme: dark) {
+    #search-input { background: rgba(28,28,26,0.96); }
+  }
+  #search-results {
+    margin-top: 4px;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    display: none;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  #search-results.show { display: block; }
+  .search-result {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    line-height: 1.35;
+  }
+  .search-result:last-child { border-bottom: none; }
+  .search-result:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+  .search-empty { padding: 8px 12px; font-size: 12px; color: var(--color-text-tertiary); }
+  .search-section {
+    padding: 7px 12px 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-text-tertiary);
+    background: var(--color-background-secondary);
+  }
+  .search-result.report { display: flex; align-items: center; gap: 8px; }
+  .sr-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .search-result.report span:last-child {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .map-fab {
+    position: absolute;
+    bottom: 24px;
+    left: 12px;
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--color-text-primary);
+    background: rgba(255,255,255,0.96);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    z-index: 1001;
+    transition: background .15s;
+  }
+  .map-fab:hover { background: var(--color-background-secondary); }
+  .map-fab svg { flex-shrink: 0; }
+  .map-fab.locating { opacity: .6; pointer-events: none; }
+  .map-fab.locating svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-color-scheme: dark) {
+    .map-fab { background: rgba(28,28,26,0.96); }
+  }
 </style>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 </head>
 <body>
 <div id="app">
@@ -366,6 +453,10 @@
         <div>Avg <strong id="ov-avg">— dB</strong></div>
         <div>Peak <strong id="ov-peak">— dB</strong></div>
       </div>
+      <button id="locate-btn" class="map-fab" title="Center on your location">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+        My location
+      </button>
     </div>
     <div id="sidebar">
       <div class="card">
@@ -391,6 +482,7 @@
         <div class="validation-msg" id="type-validation">Please select a noise type</div>
         <textarea id="noise-note" placeholder="Optional note..."></textarea>
         <button id="report-btn">Drop pin on map</button>
+        <button id="report-here-btn">Drop at my location</button>
       </div>
       <div class="card">
         <div class="card-label">Filter by type</div>
@@ -455,6 +547,7 @@ const SPARK_MAX = 40;
 let placing = false;
 let placeData = null;
 let map, ghostMarker, heatmap;
+let userLocation = null, userMarker = null, userAccuracyCircle = null;
 const markers = [];
 let showHeatmap = false;
 let showMarkers = true;
@@ -505,11 +598,32 @@ function dbColor(db) {
   return '#A32D2D';
 }
 
-function pinScale(db) {
-  if (db < 50) return 6;
-  if (db < 70) return 8;
-  if (db < 85) return 10;
-  return 12;
+function pinDiameter(db) {
+  if (db < 50) return 22;
+  if (db < 70) return 26;
+  if (db < 85) return 30;
+  return 34;
+}
+
+function makePinIcon(db, ghost) {
+  const size = pinDiameter(db);
+  const fontSize = size >= 30 ? 11 : 9;
+  return L.divIcon({
+    className: 'noise-pin' + (ghost ? ' ghost' : ''),
+    html: '<div class="noise-pin-inner" style="width:' + size + 'px;height:' + size +
+          'px;background:' + dbColor(db) + ';font-size:' + fontSize + 'px;">' + db + '</div>',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
+function popupHtml(report) {
+  return '<div style="font-family:-apple-system,sans-serif;font-size:13px;">' +
+    '<strong>' + escapeHtml(report.type) + '</strong> &middot; ' + report.db + ' dB<br>' +
+    '<span style="color:#888;">' + escapeHtml(report.time) + '</span>' +
+    (report.note ? '<br><span style="font-size:12px;">' + escapeHtml(report.note) + '</span>' : '') +
+    '</div>';
 }
 
 function timeToMinutes(t) {
@@ -540,191 +654,224 @@ function isReportVisible(r) {
   return true;
 }
 
-/* ── Custom map style ── */
-const mapStyleLight = [
-  { elementType: 'geometry', stylers: [{ color: '#f5f4f0' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f4f0' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#eeede8' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dad8d0' }] },
-  { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#cfdce0' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#7a8a8e' }] },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#e8e6dc' }] },
-];
+/* ── Map tiles (CARTO, free, no key) ── */
+const TILES_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILES_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+let tileLayer;
 
-const mapStyleDark = [
-  { elementType: 'geometry', stylers: [{ color: '#1c1c1a' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9e9d98' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1c1c1a' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e2b' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#353532' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3e3e3a' }] },
-  { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#6b6a65' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#1a2326' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5a6a6e' }] },
-  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#252523' }] },
-];
-
-function currentMapStyle() {
-  return window.matchMedia('(prefers-color-scheme:dark)').matches ? mapStyleDark : mapStyleLight;
+function isDark() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+function currentTileUrl() {
+  return isDark() ? TILES_DARK : TILES_LIGHT;
 }
 
-/* ── Google Map ── */
+/* ── Leaflet map ── */
 function initMap() {
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: 33.6595, lng: -117.9960 },
+  map = L.map('map', {
+    center: [33.6595, -117.9960],
     zoom: 15,
-    disableDefaultUI: true,
-    zoomControl: true,
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: false,
-    clickableIcons: false,
-    styles: currentMapStyle(),
+    zoomControl: false,
+    attributionControl: true,
   });
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  tileLayer = L.tileLayer(currentTileUrl(), {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(map);
 
   if (window.matchMedia) {
     window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', () => {
-      map.setOptions({ styles: currentMapStyle() });
+      tileLayer.setUrl(currentTileUrl());
     });
   }
 
   reports.forEach(r => addMarker(r));
 
-  map.addListener('click', (e) => {
+  map.on('click', (e) => {
     if (!placing) return;
-
-    const now = new Date();
-    const timeStr = formatTime(now);
-    const newReport = {
-      lat: e.latLng.lat(),
-      lng: e.latLng.lng(),
-      db: placeData.db,
-      type: placeData.type,
-      time: timeStr,
-      note: placeData.note,
-      id: nextId++,
-    };
-    reports.push(newReport);
-    saveReports();
-    addMarker(newReport);
-    rebuildHeatmap();
-    addFeedItem(newReport);
-    updateStats();
-    updateOverlay();
-    exitPlacing();
-    document.getElementById('noise-note').value = '';
-    document.getElementById('noise-type').value = '';
+    commitReport(e.latlng.lat, e.latlng.lng);
   });
 
-  map.addListener('mousemove', (e) => {
+  map.on('mousemove', (e) => {
     if (!placing) return;
     if (!ghostMarker) {
-      ghostMarker = new google.maps.Marker({
-        map: map,
-        opacity: 0.5,
-        clickable: false,
-      });
+      ghostMarker = L.marker(e.latlng, {
+        icon: makePinIcon(placeData.db, true),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1000,
+      }).addTo(map);
+    } else {
+      ghostMarker.setLatLng(e.latlng);
     }
-    const col = dbColor(placeData.db);
-    const scale = pinScale(placeData.db);
-    ghostMarker.setPosition(e.latLng);
-    ghostMarker.setIcon({
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: scale,
-      fillColor: col,
-      fillOpacity: 0.5,
-      strokeWeight: 0,
-    });
-    ghostMarker.setLabel({
-      text: String(placeData.db),
-      fontSize: scale > 8 ? '10px' : '8px',
-      color: '#fff',
-      fontWeight: 'bold',
-    });
   });
 
-  map.addListener('mouseout', () => {
-    if (ghostMarker) ghostMarker.setMap(null);
-    if (placing) ghostMarker = null;
+  map.on('mouseout', () => {
+    if (ghostMarker) {
+      map.removeLayer(ghostMarker);
+      ghostMarker = null;
+    }
   });
 
-  map.addListener('mouseover', () => {
-    if (placing && ghostMarker) ghostMarker.setMap(map);
-  });
-
-  map.addListener('idle', updateOverlay);
-  google.maps.event.addListenerOnce(map, 'tilesloaded', updateOverlay);
+  map.on('moveend', updateOverlay);
+  updateOverlay();
 
   setupSearch();
 }
 
-async function setupSearch() {
+/* ── Search: neighborhood reports (local) + places (Nominatim) ── */
+function setupSearch() {
   const wrap = document.getElementById('search-wrap');
-  if (!wrap || !google.maps.places) return;
+  if (!wrap) return;
+  wrap.innerHTML = '';
 
-  if (google.maps.places.PlaceAutocompleteElement) {
-    const pac = new google.maps.places.PlaceAutocompleteElement();
-    pac.style.width = '100%';
-    wrap.appendChild(pac);
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'search-input';
+  input.placeholder = 'Search reports or places…';
+  input.autocomplete = 'off';
 
-    pac.addEventListener('gmp-select', async (e) => {
-      try {
-        const place = e.placePrediction.toPlace();
-        await place.fetchFields({
-          fields: ['displayName', 'formattedAddress', 'location', 'viewport'],
-        });
-        if (place.viewport) {
-          map.fitBounds(place.viewport);
-        } else if (place.location) {
-          map.setCenter(place.location);
-          map.setZoom(16);
-        }
-        document.getElementById('loc-label').textContent =
-          place.displayName || place.formattedAddress || 'Custom location';
-      } catch (err) {
-        console.warn('Place fetch failed:', err);
-      }
-    });
-  } else if (google.maps.places.Autocomplete) {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Search address or place...';
-    input.autocomplete = 'off';
-    input.style.cssText =
-      'width:100%;padding:9px 12px;border:0.5px solid var(--color-border-secondary);' +
-      'border-radius:var(--border-radius-md);background:rgba(255,255,255,0.96);' +
-      'color:var(--color-text-primary);font-size:13px;font-family:var(--font-sans);' +
-      'box-shadow:0 2px 8px rgba(0,0,0,0.12);';
-    wrap.appendChild(input);
+  const results = document.createElement('div');
+  results.id = 'search-results';
 
-    const ac = new google.maps.places.Autocomplete(input, {
-      fields: ['geometry', 'name', 'formatted_address'],
-    });
-    ac.bindTo('bounds', map);
-    ac.addListener('place_changed', () => {
-      const place = ac.getPlace();
-      if (!place || !place.geometry) return;
-      if (place.geometry.viewport) {
-        map.fitBounds(place.geometry.viewport);
-      } else {
-        map.setCenter(place.geometry.location);
-        map.setZoom(16);
-      }
-      document.getElementById('loc-label').textContent =
-        place.name || place.formatted_address || 'Custom location';
+  wrap.appendChild(input);
+  wrap.appendChild(results);
+
+  let timer = null;
+  let lastQuery = '';
+  let placeResults = [];
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(timer);
+    lastQuery = q;
+    placeResults = [];
+    if (q.length < 2) {
+      results.classList.remove('show');
+      results.innerHTML = '';
+      return;
+    }
+    // Local report matches render instantly; places follow after a debounce.
+    renderSearch(q, results, input, placeResults, q.length >= 3);
+    if (q.length >= 3) {
+      timer = setTimeout(async () => {
+        const items = await fetchPlaces(q);
+        if (q !== lastQuery) return;
+        placeResults = items;
+        renderSearch(q, results, input, placeResults, false);
+      }, 350);
+    }
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 2 && results.childElementCount) {
+      results.classList.add('show');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) results.classList.remove('show');
+  });
+}
+
+function matchReports(q) {
+  const ql = q.toLowerCase();
+  return reports.filter(r =>
+    r.type.toLowerCase().includes(ql) ||
+    (r.note && r.note.toLowerCase().includes(ql)) ||
+    String(r.db).includes(ql)
+  ).slice(0, 6);
+}
+
+async function fetchPlaces(q) {
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(q);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function renderSearch(q, results, input, placeResults, pending) {
+  results.innerHTML = '';
+  const reportMatches = matchReports(q);
+
+  if (reportMatches.length) {
+    results.appendChild(searchSection('Noise reports'));
+    reportMatches.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'search-result report';
+      const dot = document.createElement('span');
+      dot.className = 'sr-dot';
+      dot.style.background = dbColor(r.db);
+      const txt = document.createElement('span');
+      txt.textContent = r.type + ' · ' + r.db + ' dB · ' + r.time + (r.note ? ' — ' + r.note : '');
+      row.appendChild(dot);
+      row.appendChild(txt);
+      row.addEventListener('click', () => {
+        focusReport(r);
+        input.value = r.type;
+        results.classList.remove('show');
+      });
+      results.appendChild(row);
     });
   }
+
+  if (placeResults.length) {
+    results.appendChild(searchSection('Places'));
+    placeResults.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'search-result';
+      row.textContent = item.display_name;
+      row.addEventListener('click', () => {
+        if (item.boundingbox) {
+          const bb = item.boundingbox.map(Number);
+          map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]]);
+        } else {
+          map.setView([parseFloat(item.lat), parseFloat(item.lon)], 16);
+        }
+        const short = item.display_name.split(',')[0];
+        document.getElementById('loc-label').textContent = short;
+        input.value = short;
+        results.classList.remove('show');
+      });
+      results.appendChild(row);
+    });
+  }
+
+  if (!reportMatches.length && !placeResults.length) {
+    const empty = document.createElement('div');
+    empty.className = 'search-empty';
+    empty.textContent = pending ? 'Searching…' : 'No matches';
+    results.appendChild(empty);
+  }
+
+  results.classList.add('show');
+}
+
+function searchSection(label) {
+  const div = document.createElement('div');
+  div.className = 'search-section';
+  div.textContent = label;
+  return div;
+}
+
+function focusReport(r) {
+  map.setView([r.lat, r.lng], 17);
+  const m = markers.find(mk => mk._reportId === r.id);
+  if (m) {
+    if (!map.hasLayer(m)) m.addTo(map);
+    m.openPopup();
+  }
+  document.getElementById('db-number').textContent = r.db + ' dB';
+  setBar(r.db);
+  document.getElementById('db-label').textContent = r.type + ' · ' + r.time;
+  document.getElementById('loc-label').textContent = r.type + ' report';
 }
 
 function formatTime(d) {
@@ -737,44 +884,19 @@ function formatTime(d) {
 }
 
 function addMarker(report) {
-  const col = dbColor(report.db);
-  const scale = pinScale(report.db);
-
-  const marker = new google.maps.Marker({
-    position: { lat: report.lat, lng: report.lng },
-    map: showMarkers && isReportVisible(report) ? map : null,
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: scale,
-      fillColor: col,
-      fillOpacity: 0.85,
-      strokeColor: col,
-      strokeWeight: 2,
-      strokeOpacity: 0.3,
-    },
-    label: {
-      text: String(report.db),
-      fontSize: scale > 8 ? '10px' : '8px',
-      color: '#fff',
-      fontWeight: 'bold',
-    },
+  const marker = L.marker([report.lat, report.lng], {
+    icon: makePinIcon(report.db, false),
+    keyboard: false,
   });
-
-  const infoContent = `<div style="font-family:-apple-system,sans-serif;font-size:13px;">
-    <strong>${escapeHtml(report.type)}</strong> &middot; ${report.db} dB<br>
-    <span style="color:#888;">${escapeHtml(report.time)}</span>
-    ${report.note ? '<br><span style="font-size:12px;">' + escapeHtml(report.note) + '</span>' : ''}
-  </div>`;
-
-  const infoWindow = new google.maps.InfoWindow({ content: infoContent });
-  marker.addListener('click', () => {
-    infoWindow.open(map, marker);
+  marker.bindPopup(popupHtml(report));
+  marker.on('click', () => {
     document.getElementById('db-number').textContent = report.db + ' dB';
     setBar(report.db);
     document.getElementById('db-label').textContent = report.type + ' · ' + report.time;
   });
 
   marker._reportId = report.id;
+  if (showMarkers && isReportVisible(report)) marker.addTo(map);
   markers.push(marker);
   return marker;
 }
@@ -782,7 +904,7 @@ function addMarker(report) {
 function removeMarker(id) {
   const idx = markers.findIndex(m => m._reportId === id);
   if (idx !== -1) {
-    markers[idx].setMap(null);
+    map.removeLayer(markers[idx]);
     markers.splice(idx, 1);
   }
 }
@@ -791,38 +913,36 @@ function refreshMarkerVisibility() {
   markers.forEach(m => {
     const r = reports.find(x => x.id === m._reportId);
     if (!r) return;
-    m.setMap(showMarkers && isReportVisible(r) ? map : null);
+    const shouldShow = showMarkers && isReportVisible(r);
+    if (shouldShow && !map.hasLayer(m)) m.addTo(map);
+    else if (!shouldShow && map.hasLayer(m)) map.removeLayer(m);
   });
 }
 
 function rebuildHeatmap() {
-  if (!window.google || !google.maps.visualization || !map) return;
+  if (!map || !L.heatLayer) return;
   if (heatmap) {
-    heatmap.setMap(null);
+    map.removeLayer(heatmap);
     heatmap = null;
   }
   if (!showHeatmap) return;
 
-  const data = reports
+  const points = reports
     .filter(isReportVisible)
-    .map(r => ({
-      location: new google.maps.LatLng(r.lat, r.lng),
-      weight: Math.max(1, (r.db - 30) / 10),
-    }));
+    .map(r => [r.lat, r.lng, Math.max(0.15, (r.db - 30) / 80)]);
 
-  heatmap = new google.maps.visualization.HeatmapLayer({
-    data: data,
-    map: map,
-    radius: 40,
-    opacity: 0.7,
-    gradient: [
-      'rgba(99,153,34,0)',
-      'rgba(99,153,34,1)',
-      'rgba(239,159,39,1)',
-      'rgba(216,90,48,1)',
-      'rgba(163,45,45,1)',
-    ],
-  });
+  heatmap = L.heatLayer(points, {
+    radius: 35,
+    blur: 25,
+    maxZoom: 17,
+    minOpacity: 0.35,
+    gradient: {
+      0.0: '#639922',
+      0.4: '#EF9F27',
+      0.7: '#D85A30',
+      1.0: '#A32D2D',
+    },
+  }).addTo(map);
 }
 
 function updateOverlay() {
@@ -830,7 +950,7 @@ function updateOverlay() {
   const bounds = map.getBounds();
   if (!bounds) return;
   const visible = reports.filter(r =>
-    isReportVisible(r) && bounds.contains({ lat: r.lat, lng: r.lng })
+    isReportVisible(r) && bounds.contains([r.lat, r.lng])
   );
   document.getElementById('ov-count').textContent = visible.length;
   if (visible.length === 0) {
@@ -848,15 +968,87 @@ function updateOverlay() {
 function exitPlacing() {
   placing = false;
   placeData = null;
-  if (ghostMarker) {
-    ghostMarker.setMap(null);
+  if (ghostMarker && map) {
+    map.removeLayer(ghostMarker);
     ghostMarker = null;
   }
-  if (map) map.setOptions({ draggableCursor: null });
+  if (map) L.DomUtil.removeClass(map.getContainer(), 'placing-cursor');
   const btn = document.getElementById('report-btn');
   btn.textContent = 'Drop pin on map';
   btn.classList.remove('active');
   document.getElementById('place-banner').classList.remove('show');
+}
+
+function commitReport(lat, lng) {
+  if (!placeData) return;
+  const newReport = {
+    lat: lat,
+    lng: lng,
+    db: placeData.db,
+    type: placeData.type,
+    time: formatTime(new Date()),
+    note: placeData.note,
+    id: nextId++,
+  };
+  reports.push(newReport);
+  saveReports();
+  addMarker(newReport);
+  rebuildHeatmap();
+  addFeedItem(newReport);
+  updateStats();
+  updateOverlay();
+  exitPlacing();
+  document.getElementById('noise-note').value = '';
+  document.getElementById('noise-type').value = '';
+}
+
+/* ── Geolocation ── */
+function showUserLocation(pos, opts) {
+  const ll = [pos.coords.latitude, pos.coords.longitude];
+  userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  const accuracy = pos.coords.accuracy || 0;
+  if (!userMarker) {
+    userMarker = L.circleMarker(ll, {
+      radius: 7,
+      color: '#fff',
+      weight: 3,
+      fillColor: '#1a73e8',
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(map);
+    userAccuracyCircle = L.circle(ll, {
+      radius: accuracy,
+      color: '#1a73e8',
+      weight: 1,
+      opacity: 0.25,
+      fillColor: '#1a73e8',
+      fillOpacity: 0.08,
+      interactive: false,
+    }).addTo(map);
+  } else {
+    userMarker.setLatLng(ll).addTo(map);
+    userAccuracyCircle.setLatLng(ll).setRadius(accuracy).addTo(map);
+  }
+  if (opts && opts.recenter) {
+    map.setView(ll, 16);
+  }
+}
+
+function locateUser(opts, cb) {
+  if (!navigator.geolocation) {
+    if (cb) cb(false);
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      showUserLocation(pos, opts);
+      if (cb) cb(true);
+    },
+    (err) => {
+      if (cb) cb(false, err);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
 }
 
 function escapeHtml(str) {
@@ -960,6 +1152,54 @@ document.getElementById('markers-btn').addEventListener('click', function () {
   showMarkers = !showMarkers;
   this.classList.toggle('active', showMarkers);
   refreshMarkerVisibility();
+});
+
+document.getElementById('locate-btn').addEventListener('click', function () {
+  if (!map) return;
+  const btn = this;
+  btn.classList.add('locating');
+  locateUser({ recenter: true }, (ok, err) => {
+    btn.classList.remove('locating');
+    document.getElementById('loc-label').textContent = ok
+      ? 'Your location'
+      : (err && err.code === 1 ? 'Location permission denied' : 'Location unavailable');
+  });
+});
+
+document.getElementById('report-here-btn').addEventListener('click', function () {
+  const typeEl = document.getElementById('noise-type');
+  const msg = document.getElementById('type-validation');
+  const type = typeEl.value;
+  if (!type) {
+    typeEl.classList.add('invalid');
+    msg.textContent = 'Please select a noise type';
+    msg.classList.add('show');
+    return;
+  }
+  const note = document.getElementById('noise-note').value;
+  const dbText = document.getElementById('db-number').textContent;
+  const db = parseInt(dbText) || Math.round(55 + Math.random() * 30);
+  placeData = { type, note, db };
+
+  if (userLocation) {
+    commitReport(userLocation.lat, userLocation.lng);
+    return;
+  }
+
+  const btn = this;
+  btn.textContent = 'Locating…';
+  btn.disabled = true;
+  locateUser({ recenter: true }, (ok) => {
+    btn.textContent = 'Drop at my location';
+    btn.disabled = false;
+    if (ok && userLocation) {
+      commitReport(userLocation.lat, userLocation.lng);
+    } else {
+      placeData = null;
+      msg.textContent = 'Location unavailable — drop a pin manually';
+      msg.classList.add('show');
+    }
+  });
 });
 
 /* ── Export ── */
@@ -1148,7 +1388,9 @@ document.getElementById('report-btn').addEventListener('click', function () {
   const type = typeEl.value;
   if (!type) {
     typeEl.classList.add('invalid');
-    document.getElementById('type-validation').classList.add('show');
+    const msg = document.getElementById('type-validation');
+    msg.textContent = 'Please select a noise type';
+    msg.classList.add('show');
     return;
   }
 
@@ -1157,7 +1399,7 @@ document.getElementById('report-btn').addEventListener('click', function () {
   const db = parseInt(dbText) || Math.round(55 + Math.random() * 30);
   placing = true;
   placeData = { type, note, db };
-  if (map) map.setOptions({ draggableCursor: 'crosshair' });
+  if (map) L.DomUtil.addClass(map.getContainer(), 'placing-cursor');
   this.textContent = 'Cancel';
   this.classList.add('active');
   document.getElementById('place-banner').classList.add('show');
@@ -1241,7 +1483,7 @@ reports.forEach(r => addFeedItem(r));
 updateStats();
 renderChips();
 setupSlider();
+initMap();
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH-49uln5lL6SXnq__0iQdk2NykKpopbc&libraries=visualization,places&loading=async&callback=initMap" async defer></script>
 </body>
 </html>
